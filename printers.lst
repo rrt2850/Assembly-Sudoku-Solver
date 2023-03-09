@@ -1,0 +1,299 @@
+   1 0000               #-----------------------------------------------------------------------------#
+   2 0000               #   File:       checkers.asm
+   3 0000               #   Author:     Robert Tetreault (rrt2850)
+   4 0000               #   Section:    3
+   5 0000               #
+   6 0000               #   Description:  
+   7 0000               #       This file is full of functions for sudoku.asm to use for printing
+   8 0000               #       things or changing how something is printed
+   9 0000               #-----------------------------------------------------------------------------#
+  10 0000               
+  11 0000               PRINT_INT       = 1     # code for syscall to print an integer
+  12 0000               PRINT_CHAR      = 11    # code for syscall to print a character
+  13 0000               PRINT_STRING    = 4     # code for syscall to print a string
+  14 0000               BOARD_DIM       = 6     # width/height of the board
+  15 0000               SPACE_CHAR      = 32    # the number representing zero in ascii
+  16 0000               
+  17 0000               .data
+  18 0000               .align 0
+  19 0000               
+  20 0000               #
+  21 0000               #   Stuff used to print the table
+  22 0000               #
+  23 0000               
+  24 0000 2B2D2D2D	horiBar:        .asciiz "+-----+-----+\n"
+          2D2D2B2D
+          2D2D2D2D
+          2B0A00  
+  25 000f 7C00    	vertBar:        .asciiz "|"
+  26 0011 0A00    	newLine:        .asciiz "\n"
+  27 0013               
+  28 0013               #
+  29 0013               #   Stuff explaining what's happening to user
+  30 0013               #
+  31 0013 0A2A2A2A	intro:          .asciiz "\n**************\n**  SUDOKU  **\n**************\n\n"
+          2A2A2A2A
+          2A2A2A2A
+          2A2A2A0A
+          2A2A2020
+          5355444F
+  32 0043 496E6974	iniPuzzle:      .asciiz "Initial Puzzle\n\n"
+          69616C20
+          50757A7A
+          6C650A0A
+          00      
+  33 0054 46696E61	finalPuzzle:    .asciiz "Final Puzzle\n\n"
+          6C205075
+          7A7A6C65
+          0A0A00  
+  34 0063 4552524F	badEnd:         .asciiz "ERROR: bad input value, Sudoku terminating\n"
+          523A2062
+          61642069
+          6E707574
+          2076616C
+          75652C20
+  35 008f 496D706F	badPuzzle:      .asciiz "Impossible Puzzle"
+          73736962
+          6C652050
+          757A7A6C
+          6500    
+  36 00a1               
+  37 0000               .text
+  38 0000               .align 2
+  39 0000               
+  40 0000               #
+  41 0000               #   Global labels in this file
+  42 0000               #
+  43 0000               .globl  printBoard
+  44 0000               .globl  printBoard
+  45 0000               .globl  printIntro
+  46 0000               .globl  solverErrorMessage
+  47 0000               .globl  announcePuzzle
+  48 0000               .globl  announceFinalPuzz
+  49 0000               .globl  mbError
+  50 0000               
+  51 0000               #
+  52 0000               #   External labels used
+  53 0000               #
+  54 0000               .globl  board
+  55 0000               
+  56 0000               
+  57 0000               #-----------------------------------------------------------------------------#
+  58 0000               #   Name:           printBoard
+  59 0000               #
+  60 0000               #   Description:    prints the current board
+  61 0000               #
+  62 0000               #   Arguments:      none
+  63 0000               #   Returns:        none
+  64 0000               #   modifies:       t0,t1,t2,t3,t4,t5,t6
+  65 0000               #
+  66 0000               #   Note: sorry that my solution to printing the bars on the board is kind of
+  67 0000               #         gross, It's the best I could think of
+  68 0000               #-----------------------------------------------------------------------------#
+  69 0000               FRAMESIZE_4 = 4
+  70 0000               printBoard:           
+  71 0000 23BDFFFC	    addi    $sp, $sp, -FRAMESIZE_4      # allocate space on the stack
+  72 0004 AFBF0000	    sw      $ra, -4+FRAMESIZE_4($sp)    # store the return address to stack
+  73 0008               
+  74 0008 00004021	    move    $t0, $zero          # row counter
+  75 000c 00004821	    move    $t1, $zero          # column counter
+  76 0010 00005021	    move    $t2, $zero          # horizontal section counter (for middle bar)
+  77 0014 00005821	    move    $t3, $zero          # vertical section counter (for vertical bars)
+  78 0018 3C0C0000	    la      $t4, board          # current memory location 
+     001c 358C0000
+  79 0020               
+  80 0020 0C000030	    jal     printHoriBar 
+  81 0024               
+  82 0024               rowLoop:
+  83 0024 0C00002B	    jal     printVertBar        
+  84 0028               
+  85 0028               colLoop:
+  86 0028 81840000	    lb      $a0, 0($t4)             
+  87 002c 14800002	    bne     $a0, $zero, switchSkip    
+  88 0030 0C00003A	    jal     printSpace              # if index is '0', print ' ' instead
+  89 0034 08000010	    j       endSwitchSkip
+  90 0038               switchSkip:                         # jump here if the character isn't '0'
+  91 0038 34020001	    li      $v0, PRINT_INT
+  92 003c 0000000C	    syscall                         # print the character
+  93 0040               endSwitchSkip:
+  94 0040                   
+  95 0040 294E0002	    slti    $t6, $t2, 2             # print a bar every three characters
+  96 0044 15C00003	    bne     $t6, $zero, barSkip     # print a space otherwise
+  97 0048               
+  98 0048 0C00002B	    jal     printVertBar            
+  99 004c 00005021	    move    $t2, $zero              # reset section counter
+ 100 0050 08000017	    j       spaceSkip
+ 101 0054               
+ 102 0054               barSkip:
+ 103 0054 0C00003A	    jal     printSpace             
+ 104 0058 214A0001	    addi    $t2, $t2, 1             # increment section counter
+ 105 005c               
+ 106 005c               spaceSkip:
+ 107 005c               
+ 108 005c 21290001	    addi    $t1, $t1, 1             # increment column counter
+ 109 0060 218C0001	    addi    $t4, $t4, 1             # increment current memory address
+ 110 0064               
+ 111 0064 292E0006	    slti    $t6, $t1, BOARD_DIM
+ 112 0068 15C0FFEF	    bne     $t6, $zero, colLoop     # loop 6 times
+ 113 006c               ### Exit colLoop
+ 114 006c               
+ 115 006c 0C000035	    jal endl                        
+ 116 0070               
+ 117 0070 21080001	    addi    $t0, $t0, 1             # increment row counter
+ 118 0074 00004821	    move    $t1, $zero              # reset column counter
+ 119 0078 00005021	    move    $t2, $zero              # reset vertical bar counter
+ 120 007c               
+ 121 007c 296E0001	    slti    $t6, $t3, 1
+ 122 0080 15C00003	    bne     $t6, $zero, horiSkip    # print the horizontal bar every 2 rows
+ 123 0084                   
+ 124 0084 0C000030	    jal     printHoriBar            
+ 125 0088 00005821	    move    $t3, $zero              # reset horizontal bar counter
+ 126 008c 08000025	    j       horiFinish
+ 127 0090               
+ 128 0090               horiSkip:
+ 129 0090 216B0001	    addi    $t3, $t3, 1             # increment horizontal section counter
+ 130 0094               
+ 131 0094               horiFinish:
+ 132 0094 290E0006	    slti    $t6, $t0, BOARD_DIM
+ 133 0098 15C0FFE2	    bne     $t6, $zero, rowLoop     # loop 6 times
+ 134 009c               
+ 135 009c               ### Exit rowLoop
+ 136 009c               
+ 137 009c 0C000035	    jal endl
+ 138 00a0               
+ 139 00a0 8FBF0000	    lw      $ra, -4+FRAMESIZE_4($sp)    # restore the ra
+ 140 00a4 23BD0004	    addi    $sp, $sp, FRAMESIZE_4       # deallocate stack space
+ 141 00a8 03E00008	    jr      $ra
+ 142 00ac               
+ 143 00ac               
+ 144 00ac               #
+ 145 00ac               #   printVertBar:   prints '|' when called
+ 146 00ac               #
+ 147 00ac               printVertBar:
+ 148 00ac 3C040000	    la  $a0, vertBar
+     00b0 34840000
+ 149 00b4 34020004	    li  $v0, PRINT_STRING
+ 150 00b8 0000000C	    syscall
+ 151 00bc 03E00008	    jr  $ra
+ 152 00c0               
+ 153 00c0               
+ 154 00c0               #
+ 155 00c0               #   printHoriBar:   prints "+-----+-----+\n" when called
+ 156 00c0               #
+ 157 00c0               printHoriBar:
+ 158 00c0 3C040000	    la  $a0, horiBar
+     00c4 34840000
+ 159 00c8 34020004	    li  $v0, PRINT_STRING
+ 160 00cc 0000000C	    syscall
+ 161 00d0 03E00008	    jr  $ra
+ 162 00d4               
+ 163 00d4               
+ 164 00d4               #
+ 165 00d4               #   endl:   prints "\n" when called 
+ 166 00d4               #
+ 167 00d4               endl:
+ 168 00d4 3C040000	    la  $a0, newLine
+     00d8 34840000
+ 169 00dc 34020004	    li  $v0, PRINT_STRING
+ 170 00e0 0000000C	    syscall
+ 171 00e4 03E00008	    jr  $ra
+ 172 00e8               
+ 173 00e8               
+ 174 00e8               #
+ 175 00e8               #   printSpace: prints ' ' 
+ 176 00e8               #
+ 177 00e8               printSpace:
+ 178 00e8 3402000B	    li      $v0, PRINT_CHAR
+ 179 00ec 34040020	    li      $a0, SPACE_CHAR
+ 180 00f0 0000000C	    syscall                         # print the space
+ 181 00f4 03E00008	    jr  $ra
+ 182 00f8               
+ 183 00f8               #
+ 184 00f8               #   printIntro: prints the intro message
+ 185 00f8               #
+ 186 00f8               printIntro:
+ 187 00f8 3C040000	    la  $a0, intro
+     00fc 34840000
+ 188 0100 34020004	    li  $v0, PRINT_STRING
+ 189 0104 0000000C	    syscall                             # print the intro message
+ 190 0108 03E00008	    jr  $ra
+ 191 010c               
+ 192 010c               #
+ 193 010c               #   announcePuzzle: labels the first puzzle initial puzzle
+ 194 010c               #
+ 195 010c               announcePuzzle:
+ 196 010c 3C040000	    la      $a0, iniPuzzle
+     0110 34840000
+ 197 0114 34020004	    li      $v0, PRINT_STRING
+ 198 0118 0000000C	    syscall                             # print "Initial Puzzle"
+ 199 011c 03E00008	    jr  $ra
+ 200 0120               
+ 201 0120               #
+ 202 0120               #   announceFinalPuzz: labels the second puzzle final puzzle 
+ 203 0120               #
+ 204 0120               announceFinalPuzz:
+ 205 0120 3C040000	    la      $a0, finalPuzzle
+     0124 34840000
+ 206 0128 34020004	    li      $v0, PRINT_STRING
+ 207 012c 0000000C	    syscall                             # print "Final Puzzle"
+ 208 0130 03E00008	    jr      $ra
+ 209 0134               #
+ 210 0134               #   solverErrorMessage: prints a message when the puzzle is impossible
+ 211 0134               #
+ 212 0134               solverErrorMessage:
+ 213 0134 3C040000	    la      $a0, badPuzzle
+     0138 34840000
+ 214 013c 34020004	    li      $v0, PRINT_STRING
+ 215 0140 0000000C	    syscall                             # print error message
+ 216 0144               
+ 217 0144 03E00008	    jr      $ra
+ 218 0148               
+ 219 0148               #
+ 220 0148               #   mbError: prints an error message when the input is bad
+ 221 0148               #
+ 222 0148               mbError:
+ 223 0148 3C040000	    la      $a0, badEnd                 
+     014c 34840000
+ 224 0150 34020004	    li      $v0, PRINT_STRING
+ 225 0154 0000000C	    syscall                             # print error output
+ 226 0158 03E00008	    jr      $ra
+Warning: Unexpected EOF - missing EOLN on last statement?
+
+There was one warning
+
+
+       Name         F  Value   M V Sect.                   References
+------------------  - -------- - - ----- ----------------------------------------------
+BOARD_DIM             00000006 =         @   14, 111, 132
+FRAMESIZE_4           00000004 =         @   70,  71,  72, 139, 140
+PRINT_CHAR            0000000B =         @   12, 178
+PRINT_INT             00000001 =         @   11,  91
+PRINT_STRING          00000004 =         @   13, 149, 159, 169, 188, 197, 206, 214, 224
+SPACE_CHAR            00000020 =         @   15, 179
+announceFinalPuzz     00000120 R G text  @   47, 204
+announcePuzzle        0000010C R G text  @   46, 195
+badEnd                00000063 R   data  @   34, 223
+badPuzzle             0000008F R   data  @   35, 213
+barSkip               00000054 R   text  @   96, 102
+board                 ******** X G       @   53,  78
+colLoop               00000028 R   text  @   85, 112
+endSwitchSkip         00000040 R   text  @   89,  93
+endl                  000000D4 R   text  @  115, 137, 167
+finalPuzzle           00000054 R   data  @   33, 205
+horiBar               00000000 R   data  @   24, 158
+horiFinish            00000094 R   text  @  126, 131
+horiSkip              00000090 R   text  @  122, 128
+iniPuzzle             00000043 R   data  @   32, 196
+intro                 00000013 R   data  @   31, 187
+mbError               00000148 R G text  @   48, 222
+newLine               00000011 R   data  @   26, 168
+printBoard            00000000 R G text  @   42,  43,  70
+printHoriBar          000000C0 R   text  @   80, 124, 157
+printIntro            000000F8 R G text  @   44, 186
+printSpace            000000E8 R   text  @   88, 103, 177
+printVertBar          000000AC R   text  @   83,  98, 147
+rowLoop               00000024 R   text  @   82, 133
+solverErrorMessage    00000134 R G text  @   45, 212
+spaceSkip             0000005C R   text  @  100, 106
+switchSkip            00000038 R   text  @   87,  90
+vertBar               0000000F R   data  @   25, 148

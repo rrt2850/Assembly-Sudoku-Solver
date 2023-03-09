@@ -1,0 +1,301 @@
+   1 0000               #-----------------------------------------------------------------------------#
+   2 0000               #   File:       checkers.asm
+   3 0000               #   Author:     Robert Tetreault (rrt2850)
+   4 0000               #   Section:    3
+   5 0000               #
+   6 0000               #   Description:  
+   7 0000               #       This file is full of functions for sudoku.asm to use for checking
+   8 0000               #       the numbers on the board
+   9 0000               #-----------------------------------------------------------------------------#
+  10 0000               
+  11 0000               ROW_SEC_1       = 2     # if the row is < 2 it's in section 1
+  12 0000               ROW_SEC_2       = 4     # if the row is < 4 it's in section 2
+  13 0000               COL_SEC_1       = 3     # if the col is < 3 it's in section 1
+  14 0000               
+  15 0000               #
+  16 0000               #   Global labels in this file
+  17 0000               #
+  18 0000               .globl checkRow
+  19 0000               .globl checkCol
+  20 0000               .globl checkBox
+  21 0000               
+  22 0000               #
+  23 0000               #   External functions called
+  24 0000               #
+  25 0000               .globl getIndex 
+  26 0000               
+  27 0000               #-----------------------------------------------------------------------------#
+  28 0000               #   Name:           checkRow
+  29 0000               #
+  30 0000               #   Description:    scans through columns in a row and looks for a number
+  31 0000               #                   specified by s3
+  32 0000               #
+  33 0000               #   Arguments:      
+  34 0000               #                   - s0 = board
+  35 0000               #                   - s1 = row
+  36 0000               #                   - s2 = col
+  37 0000               #                   - s3 = number to check
+  38 0000               #   Returns:
+  39 0000               #                   - v0 = 1 if the number is found
+  40 0000               #                   - v0 = 0 otherwise
+  41 0000               #   modifies:       v0,a0
+  42 0000               #-----------------------------------------------------------------------------#
+  43 0000               
+  44 0000               FRAMESIZE_32 = 32
+  45 0000               checkRow:                  
+  46 0000 23BDFFE0	    addi    $sp, $sp, -FRAMESIZE_32     # allocate stack space
+  47 0004 AFBF001C	    sw      $ra, -4+FRAMESIZE_32($sp)   # backup all the registers used
+  48 0008 AFA80018	    sw      $t0, -8+FRAMESIZE_32($sp)
+  49 000c AFA90014	    sw      $t1, -12+FRAMESIZE_32($sp)
+  50 0010 AFAA0010	    sw      $t2, -16+FRAMESIZE_32($sp)
+  51 0014 AFB0000C	    sw      $s0, -20+FRAMESIZE_32($sp)
+  52 0018 AFB10008	    sw      $s1, -24+FRAMESIZE_32($sp)
+  53 001c AFB20004	    sw      $s2, -28+FRAMESIZE_32($sp)
+  54 0020 AFB30000	    sw      $s3, -32+FRAMESIZE_32($sp)
+  55 0024               
+  56 0024 00004021	    move    $t0, $zero              # initialize column counter
+  57 0028                   
+  58 0028               #   Enter check row loop
+  59 0028               crLoop:
+  60 0028 01009021	    move    $s2, $t0               
+  61 002c 0C000000	    jal     getIndex                # get the value at new coordinates
+  62 0030               
+  63 0030 12620005	    beq     $s3, $v0, crBadEnd      # return 1 if s0 is found in the row
+  64 0034               
+  65 0034 21080001	    addi    $t0, $t0, 1             # increment counter
+  66 0038 29090006	    slti    $t1, $t0, 6
+  67 003c 1520FFFA	    bne     $t1, $zero, crLoop      # loop if column < 6
+  68 0040               
+  69 0040 34020000	    li      $v0, 0
+  70 0044 08000013	    j       crExit                  # return 0 upon success
+  71 0048                 
+  72 0048               crBadEnd:
+  73 0048 34020001	    li      $v0, 1                  # return 1 upon failure
+  74 004c               
+  75 004c               crExit:
+  76 004c 8FB30000	    lw      $s3, -32+FRAMESIZE_32($sp)
+  77 0050 8FB20004	    lw      $s2, -28+FRAMESIZE_32($sp)
+  78 0054 8FB10008	    lw      $s1, -24+FRAMESIZE_32($sp)
+  79 0058 8FB0000C	    lw      $s0, -20+FRAMESIZE_32($sp)
+  80 005c 8FAA0010	    lw      $t2, -16+FRAMESIZE_32($sp)
+  81 0060 8FA90014	    lw      $t1, -12+FRAMESIZE_32($sp)  
+  82 0064 8FA80018	    lw      $t0, -8+FRAMESIZE_32($sp)   
+  83 0068 8FBF001C	    lw      $ra, -4+FRAMESIZE_32($sp)   # restore the ra
+  84 006c 23BD0020	    addi    $sp, $sp, FRAMESIZE_32      # deallocate stack space
+  85 0070 03E00008	    jr      $ra
+  86 0074               
+  87 0074               #-----------------------------------------------------------------------------#
+  88 0074               #   Name:           checkCol
+  89 0074               #
+  90 0074               #   Description:    scans through rows in a column and looks for a number
+  91 0074               #                   specified by s3
+  92 0074               #
+  93 0074               #   Arguments:      
+  94 0074               #                   - s0 = board
+  95 0074               #                   - s1 = row
+  96 0074               #                   - s2 = col
+  97 0074               #                   - s3 = number to check
+  98 0074               #   Returns:
+  99 0074               #                   - v0 = 1 if the number is found
+ 100 0074               #                   - v0 = 0 otherwise
+ 101 0074               #   modifies:       v0,a0
+ 102 0074               #-----------------------------------------------------------------------------#
+ 103 0074               checkCol:              
+ 104 0074 23BDFFE0	    addi    $sp, $sp, -FRAMESIZE_32     # allocate stack space
+ 105 0078 AFBF001C	    sw      $ra, -4+FRAMESIZE_32($sp)   # backup all the registers used
+ 106 007c AFA80018	    sw      $t0, -8+FRAMESIZE_32($sp)
+ 107 0080 AFA90014	    sw      $t1, -12+FRAMESIZE_32($sp)
+ 108 0084 AFAA0010	    sw      $t2, -16+FRAMESIZE_32($sp)
+ 109 0088 AFB0000C	    sw      $s0, -20+FRAMESIZE_32($sp)
+ 110 008c AFB10008	    sw      $s1, -24+FRAMESIZE_32($sp)
+ 111 0090 AFB20004	    sw      $s2, -28+FRAMESIZE_32($sp)
+ 112 0094 AFB30000	    sw      $s3, -32+FRAMESIZE_32($sp)
+ 113 0098               
+ 114 0098 00004021	    move    $t0, $zero              # set row counter to 0
+ 115 009c               
+ 116 009c               #   Enter check column loop
+ 117 009c               ccLoop:
+ 118 009c 01008821	    move    $s1, $t0
+ 119 00a0 0C000000	    jal     getIndex                # update v0 with new s2 value
+ 120 00a4               
+ 121 00a4 12620005	    beq     $s3, $v0, ccBadEnd      # return 1 if s3 is found in the column
+ 122 00a8               
+ 123 00a8 21080001	    addi    $t0, $t0, 1             #increment row counter
+ 124 00ac               
+ 125 00ac 29090006	    slti    $t1, $t0, 6
+ 126 00b0 1520FFFA	    bne     $t1, $zero, ccLoop      # loop if row < 6
+ 127 00b4               
+ 128 00b4 34020000	    li  $v0, 0
+ 129 00b8 08000030	    j   ccExit                      # return 0 on success
+ 130 00bc               
+ 131 00bc               ccBadEnd:
+ 132 00bc               
+ 133 00bc 34020001	    li  $v0, 1                      # return 1 on failure
+ 134 00c0               
+ 135 00c0               ccExit:
+ 136 00c0 8FB30000	    lw      $s3, -32+FRAMESIZE_32($sp)
+ 137 00c4 8FB20004	    lw      $s2, -28+FRAMESIZE_32($sp)
+ 138 00c8 8FB10008	    lw      $s1, -24+FRAMESIZE_32($sp)
+ 139 00cc 8FB0000C	    lw      $s0, -20+FRAMESIZE_32($sp)
+ 140 00d0 8FAA0010	    lw      $t2, -16+FRAMESIZE_32($sp)
+ 141 00d4 8FA90014	    lw      $t1, -12+FRAMESIZE_32($sp) 
+ 142 00d8 8FA80018	    lw      $t0, -8+FRAMESIZE_32($sp)   
+ 143 00dc 8FBF001C	    lw      $ra, -4+FRAMESIZE_32($sp)   # restore the ra
+ 144 00e0 23BD0020	    addi    $sp, $sp, FRAMESIZE_32      # deallocate stack space
+ 145 00e4 03E00008	    jr      $ra
+ 146 00e8               
+ 147 00e8               #-----------------------------------------------------------------------------#
+ 148 00e8               #   Name:           checkBox
+ 149 00e8               #
+ 150 00e8               #   Description:    more complicated than the other check functions. Divides
+ 151 00e8               #                   the board into 6 different groups and adjusts the row and
+ 152 00e8               #                   column offset accordingly. Afterwards, it looks at all
+ 153 00e8               #                   members of the group to find a number specified by s3                  
+ 154 00e8               #
+ 155 00e8               #   Arguments:      
+ 156 00e8               #                   - s0 = board
+ 157 00e8               #                   - s1 = row
+ 158 00e8               #                   - s2 = col
+ 159 00e8               #                   - s3 = number to check
+ 160 00e8               #   Returns:
+ 161 00e8               #                   - v0 = 1 if the number is found
+ 162 00e8               #                   - v0 = 0 otherwise
+ 163 00e8               #   modifies:       v0
+ 164 00e8               #-----------------------------------------------------------------------------#
+ 165 00e8               FRAMESIZE_40 = 40
+ 166 00e8               checkBox:
+ 167 00e8 23BDFFD8	    addi    $sp, $sp, -FRAMESIZE_40     # allocate stack space
+ 168 00ec AFBF0024	    sw      $ra, -4+FRAMESIZE_40($sp)   # backup all registers used
+ 169 00f0 AFA80020	    sw      $t0, -8+FRAMESIZE_40($sp)
+ 170 00f4 AFA9001C	    sw      $t1, -12+FRAMESIZE_40($sp)
+ 171 00f8 AFAA0018	    sw      $t2, -16+FRAMESIZE_40($sp)
+ 172 00fc AFAB0014	    sw      $t3, -20+FRAMESIZE_40($sp)
+ 173 0100 AFAC0010	    sw      $t4, -24+FRAMESIZE_40($sp)
+ 174 0104 AFAD000C	    sw      $t5, -28+FRAMESIZE_40($sp)
+ 175 0108 AFB00008	    sw      $s0, -32+FRAMESIZE_40($sp)
+ 176 010c AFB10004	    sw      $s1, -36+FRAMESIZE_40($sp)
+ 177 0110 AFB20000	    sw      $s2, -40+FRAMESIZE_40($sp)
+ 178 0114               
+ 179 0114 2A280002	    slti    $t0, $s1, ROW_SEC_1         
+ 180 0118 15000004	    bne     $t0, $zero, rowSecOne       # if row < 2, offset = 0
+ 181 011c               
+ 182 011c 2A280004	    slti    $t0, $s1, ROW_SEC_2         
+ 183 0120 15000004	    bne     $t0, $zero, rowSecTwo       # if 1 < row < 4, offset = 2
+ 184 0124               
+ 185 0124 34090004	    li      $t1, ROW_SEC_2              # if 3 < row < 6, offset = 4 
+ 186 0128 0800004E	    j       getColSec
+ 187 012c               
+ 188 012c               #
+ 189 012c               #   rowSecOne:  sets the row offset to 0 because the row is in group 1
+ 190 012c               #
+ 191 012c               rowSecOne:
+ 192 012c 00004821	    move    $t1, $zero                  # set row offset to 0
+ 193 0130 0800004E	    j       getColSec
+ 194 0134               
+ 195 0134               #
+ 196 0134               #   rowSecTwo:  sets the row offset to 2 because the row is in group 2
+ 197 0134               #
+ 198 0134               rowSecTwo:
+ 199 0134 34090002	    li  $t1, ROW_SEC_1                  # set row offset to 2
+ 200 0138               
+ 201 0138               getColSec:
+ 202 0138 2A480003	    slti    $t0, $s2, COL_SEC_1         
+ 203 013c 15000002	    bne     $t0, $zero, colSecOne       # if col < 3, offset = 0
+ 204 0140               
+ 205 0140 340A0003	    li      $t2, COL_SEC_1              # else, offset = 3 (section 2)
+ 206 0144 08000053	    j       loopSetup
+ 207 0148               
+ 208 0148               #
+ 209 0148               #   colSecOne:  sets the column offset to 0 because the column is in group 1
+ 210 0148               #
+ 211 0148               colSecOne:
+ 212 0148 00005021	    move $t2, $zero                     # set column offset to 0
+ 213 014c               
+ 214 014c               loopSetup:
+ 215 014c 00005821	    move    $t3, $zero                  # initialize row counter
+ 216 0150 00006021	    move    $t4, $zero                  # initialize column counter
+ 217 0154               
+ 218 0154               #   registers used in the loop:
+ 219 0154               #       t0 = boolean
+ 220 0154               #       t1 = row offset
+ 221 0154               #       t2 = col offset
+ 222 0154               #       t3 = row counter
+ 223 0154               #       t4 = col counter
+ 224 0154               
+ 225 0154               cbRowLoop:
+ 226 0154               cbColLoop:
+ 227 0154 01608821	    move    $s1, $t3                    
+ 228 0158 02298820	    add     $s1, $s1, $t1               # increase row by offset
+ 229 015c               
+ 230 015c 01809021	    move    $s2, $t4                    
+ 231 0160 024A9020	    add     $s2, $s2, $t2               # increase column by offset
+ 232 0164               
+ 233 0164 0C000000	    jal     getIndex                    # get value at adjusted spot
+ 234 0168               
+ 235 0168 12620009	    beq     $s3, $v0, cbBadEnd          # exit function if the number is found
+ 236 016c               
+ 237 016c 218C0001	    addi    $t4, $t4, 1                 # increment column counter 
+ 238 0170               
+ 239 0170 29880003	    slti    $t0, $t4, 3
+ 240 0174 1500FFF7	    bne     $t0, $zero, cbColLoop       # loop if column < 3
+ 241 0178               #   leave column loop
+ 242 0178                   
+ 243 0178 00006021	    move    $t4, $zero                  # reset column counter
+ 244 017c 216B0001	    addi    $t3, $t3, 1                 # increment row counter
+ 245 0180               
+ 246 0180 29680002	    slti    $t0, $t3, 2
+ 247 0184 1500FFF3	    bne     $t0, $zero, cbRowLoop       # loop if row < 2
+ 248 0188               #   leave row loop
+ 249 0188               
+ 250 0188 34020000	    li      $v0, 0                      # return 0 on success
+ 251 018c 08000065	    j       cbExit
+ 252 0190               
+ 253 0190               #   return 0 if number is found    
+ 254 0190               cbBadEnd:
+ 255 0190 34020001	    li      $v0, 1                      # return 1 on failure
+ 256 0194               
+ 257 0194               cbExit:
+ 258 0194 8FB20000	    lw      $s2, -40+FRAMESIZE_40($sp)  # restore all registers used
+ 259 0198 8FB10004	    lw      $s1, -36+FRAMESIZE_40($sp)
+ 260 019c 8FB00008	    lw      $s0, -32+FRAMESIZE_40($sp)
+ 261 01a0 8FAD000C	    lw      $t5, -28+FRAMESIZE_40($sp)
+ 262 01a4 8FAC0010	    lw      $t4, -24+FRAMESIZE_40($sp)
+ 263 01a8 8FAB0014	    lw      $t3, -20+FRAMESIZE_40($sp)
+ 264 01ac 8FAA0018	    lw      $t2, -16+FRAMESIZE_40($sp)
+ 265 01b0 8FA9001C	    lw      $t1, -12+FRAMESIZE_40($sp)  
+ 266 01b4 8FA80020	    lw      $t0, -8+FRAMESIZE_40($sp)   
+ 267 01b8 8FBF0024	    lw      $ra, -4+FRAMESIZE_40($sp)   # restore the ra
+ 268 01bc 23BD0028	    addi    $sp, $sp, FRAMESIZE_40      # deallocate stack space
+ 269 01c0 03E00008	    jr      $ra
+ 270 01c4               
+
+
+    Name      F  Value   M V Sect.                                    References
+------------  - -------- - - ----- ---------------------------------------------------------------------------------
+COL_SEC_1       00000003 =         @   13, 202, 205
+FRAMESIZE_32    00000020 =         @   45,  46,  47,  48,  49,  50,  51,  52,  53,  54,  76,  77,  78,  79,  80,  81,  82
+                                   @   83,  84, 104, 105, 106, 107, 108, 109, 110, 111, 112, 136, 137, 138, 139, 140, 141
+                                   @  142, 143, 144
+FRAMESIZE_40    00000028 =         @  166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 258, 259, 260, 261, 262
+                                   @  263, 264, 265, 266, 267, 268
+ROW_SEC_1       00000002 =         @   11, 179, 199
+ROW_SEC_2       00000004 =         @   12, 182, 185
+cbBadEnd        00000190 R   text  @  235, 254
+cbColLoop       00000154 R   text  @  226, 240
+cbExit          00000194 R   text  @  251, 257
+cbRowLoop       00000154 R   text  @  225, 247
+ccBadEnd        000000BC R   text  @  121, 131
+ccExit          000000C0 R   text  @  129, 135
+ccLoop          0000009C R   text  @  117, 126
+checkBox        000000E8 R G text  @   19, 166
+checkCol        00000074 R G text  @   18, 103
+checkRow        00000000 R G text  @   17,  45
+colSecOne       00000148 R   text  @  203, 211
+crBadEnd        00000048 R   text  @   63,  72
+crExit          0000004C R   text  @   70,  75
+crLoop          00000028 R   text  @   59,  67
+getColSec       00000138 R   text  @  186, 193, 201
+getIndex        ******** X G       @   24,  61, 119, 233
+loopSetup       0000014C R   text  @  206, 214
+rowSecOne       0000012C R   text  @  180, 191
+rowSecTwo       00000134 R   text  @  183, 198

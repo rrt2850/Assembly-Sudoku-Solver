@@ -1,0 +1,452 @@
+   1 0000               #-----------------------------------------------------------------------------#
+   2 0000               #   File:       sudoku.asm
+   3 0000               #   Author:     Robert Tetreault (rrt2850)
+   4 0000               #   Section:    3
+   5 0000               #
+   6 0000               #   Description:  
+   7 0000               #       This program uses backtracking to solve a sudoku game
+   8 0000               #       entered by the user
+   9 0000               #-----------------------------------------------------------------------------#
+  10 0000               
+  11 0000               
+  12 0000               #
+  13 0000               #   Constants
+  14 0000               #
+  15 0000               READ_INT        = 5      # code for syscall to read an integer
+  16 0000               
+  17 0000               BOARD_SIZE      = 36    # the area covered by the board
+  18 0000               BOARD_DIM       = 6     # width/height of the board
+  19 0000               
+  20 0000               BACKSPACE       = 10    # the ascii for the backspace character
+  21 0000               
+  22 0000               
+  23 0000               .data
+  24 0000               .align 0    # no alignment needed for bytes
+  25 0000               
+  26 0000               
+  27 0000               #
+  28 0000               #   A 2d array representing the board
+  29 0000               #
+  30 0000               #   NOTE:   I chose this representation instead allocating space in one go
+  31 0000               #           because it's easier to visualize and can be used to test stuff
+  32 0000               board:
+  33 0000 00      	    .byte 0, 0, 0, 0, 0, 0
+     0001 00      
+     0002 00      
+     0003 00      
+     0004 00      
+     0005 00      
+  34 0006 00      	    .byte 0, 0, 0, 0, 0, 0
+     0007 00      
+     0008 00      
+     0009 00      
+     000a 00      
+     000b 00      
+  35 000c 00      	    .byte 0, 0, 0, 0, 0, 0
+     000d 00      
+     000e 00      
+     000f 00      
+     0010 00      
+     0011 00      
+  36 0012 00      	    .byte 0, 0, 0, 0, 0, 0
+     0013 00      
+     0014 00      
+     0015 00      
+     0016 00      
+     0017 00      
+  37 0018 00      	    .byte 0, 0, 0, 0, 0, 0
+     0019 00      
+     001a 00      
+     001b 00      
+     001c 00      
+     001d 00      
+  38 001e 00      	    .byte 0, 0, 0, 0, 0, 0
+     001f 00      
+     0020 00      
+     0021 00      
+     0022 00      
+     0023 00      
+  39 0024               
+  40 0024               #
+  41 0024               #   A 2d array representing the initial board. This is used during the 
+  42 0024               #   backtracking to know which cells to skip.
+  43 0024               #
+  44 0024               occupiedBoard:
+  45 0024 00      	    .byte 0, 0, 0, 0, 0, 0
+     0025 00      
+     0026 00      
+     0027 00      
+     0028 00      
+     0029 00      
+  46 002a 00      	    .byte 0, 0, 0, 0, 0, 0
+     002b 00      
+     002c 00      
+     002d 00      
+     002e 00      
+     002f 00      
+  47 0030 00      	    .byte 0, 0, 0, 0, 0, 0
+     0031 00      
+     0032 00      
+     0033 00      
+     0034 00      
+     0035 00      
+  48 0036 00      	    .byte 0, 0, 0, 0, 0, 0
+     0037 00      
+     0038 00      
+     0039 00      
+     003a 00      
+     003b 00      
+  49 003c 00      	    .byte 0, 0, 0, 0, 0, 0
+     003d 00      
+     003e 00      
+     003f 00      
+     0040 00      
+     0041 00      
+  50 0042 00      	    .byte 0, 0, 0, 0, 0, 0
+     0043 00      
+     0044 00      
+     0045 00      
+     0046 00      
+     0047 00      
+  51 0048               
+  52 0048               
+  53 0000               .text               # switch back to program code
+  54 0000               .align 2            # set code back to word boundaries
+  55 0000               
+  56 0000               #
+  57 0000               #   Global labels in this file
+  58 0000               #
+  59 0000               .globl main         
+  60 0000               .globl getIndex
+  61 0000               .globl board
+  62 0000               .globl occupiedBoard
+  63 0000               
+  64 0000               
+  65 0000               #
+  66 0000               #   External functions called
+  67 0000               #
+  68 0000               .globl  printBoard
+  69 0000               .globl  printIntro
+  70 0000               .globl  solverErrorMessage
+  71 0000               .globl  announcePuzzle
+  72 0000               .globl  announceFinalPuzz
+  73 0000               .globl  mbError
+  74 0000               
+  75 0000               .globl  checkRow
+  76 0000               .globl  checkCol
+  77 0000               .globl  checkBox  
+  78 0000               
+  79 0000               #-----------------------------------------------------------------------------#
+  80 0000               #   Name:           main
+  81 0000               #
+  82 0000               #   Description:    execution begins here, main sets everything up and prints
+  83 0000               #                   the results to the user
+  84 0000               #
+  85 0000               #   Arguments:      none
+  86 0000               #   Returns:
+  87 0000               #                   - v0 = 1 if it failed
+  88 0000               #                   - v0 = 0 if it succeeded
+  89 0000               #   modifies:       a0, v0
+  90 0000               #-----------------------------------------------------------------------------#
+  91 0000               
+  92 0000               FRAMESIZE_4 = 4
+  93 0000               main:                                  
+  94 0000 23BDFFFC	    addi    $sp, $sp, -FRAMESIZE_4      # allocate space for the stack frame
+  95 0004 AFBF0000	    sw      $ra, -4+FRAMESIZE_4($sp)    # store the ra on the stack
+  96 0008               
+  97 0008 0C000000	    jal     printIntro                  # print the intro
+  98 000c               
+  99 000c 0C00000F	    jal     makeBoard                   # make the board
+ 100 0010 14400007	    bne     $v0, $zero, exitMain        # exit if it failed
+ 101 0014               
+ 102 0014 0C000000	    jal     announcePuzzle              # display first puzzle title
+ 103 0018 0C000000	    jal     printBoard                  # print the initial board
+ 104 001c               
+ 105 001c 0C00002F	    jal     solver                      # attempt to solve the puzzle
+ 106 0020 14400003	    bne     $v0, $zero, exitMain        # exit if it failed
+ 107 0024               
+ 108 0024 0C000000	    jal     announceFinalPuzz           # display second puzzle title
+ 109 0028 0C000000	    jal     printBoard                  # print the solved puzzle
+ 110 002c               
+ 111 002c 00001021	    move    $v0, $zero                  # return 0 on success
+ 112 0030                   
+ 113 0030               exitMain:
+ 114 0030 8FBF0000	    lw      $ra, -4+FRAMESIZE_4($sp)    # restore the ra
+ 115 0034 23BD0004	    addi    $sp, $sp, FRAMESIZE_4       # deallocate stack space
+ 116 0038 03E00008	    jr      $ra                         # return from main and exit
+ 117 003c               
+ 118 003c               #-----------------------------------------------------------------------------#
+ 119 003c               #   Name:           makeBoard
+ 120 003c               #
+ 121 003c               #   Description:    gets 36 characters from the user and stores them on
+ 122 003c               #                   the board
+ 123 003c               #
+ 124 003c               #   Arguments:      none
+ 125 003c               #   Returns:
+ 126 003c               #                   - v0 = 1 if it failed
+ 127 003c               #                   - v0 = 0 if it succeeded
+ 128 003c               #   modifies:       t0,t1,t2,t3,t4,t5,t6,v0
+ 129 003c               #
+ 130 003c               #   Note: assumes that the user will enter 36 characters
+ 131 003c               #
+ 132 003c               #-----------------------------------------------------------------------------#
+ 133 003c               makeBoard:
+ 134 003c 23BDFFFC	    addi    $sp, $sp, -FRAMESIZE_4      # allocate stack space
+ 135 0040 AFBF0000	    sw      $ra, -4+FRAMESIZE_4($sp)    # store the ra on the stack
+ 136 0044                   
+ 137 0044 3C080000	    la      $t0, board                  # current memory location
+     0048 35080000
+ 138 004c 3C090000	    la      $t1, occupiedBoard          # occupiedBoard memory location
+     0050 35290000
+ 139 0054 340A000A	    li      $t2, BACKSPACE                    
+ 140 0058 340B0001	    li      $t3, 1                      
+ 141 005c 00006021	    move    $t4, $zero                  # input counter
+ 142 0060               
+ 143 0060               
+ 144 0060               inputLoop:
+ 145 0060 34020005	    li      $v0, READ_INT
+ 146 0064 0000000C	    syscall                             # get input from user
+ 147 0068 104AFFFD	    beq     $v0, $t2, inputLoop         # parse out backspace characters
+ 148 006c                   
+ 149 006c 284D0000	    slti    $t5, $v0, 0         
+ 150 0070 15A0000D	    bne     $t5, $zero, mbBadEnd        # exit if input < 0
+ 151 0074                   
+ 152 0074 284D0007	    slti    $t5, $v0, 7            
+ 153 0078 11A0000B	    beq     $t5, $zero, mbBadEnd        # exit if input > 6
+ 154 007c               
+ 155 007c A1020000	    sb      $v0, 0($t0)                 # store valid number
+ 156 0080               
+ 157 0080 284D0001	    slti    $t5, $v0, 1
+ 158 0084 15A00001	    bne     $t5, $zero, oneSkip         # if input = 0, don't modify 
+ 159 0088                                                       # the occupiedBoard
+ 160 0088               
+ 161 0088 A12B0000	    sb      $t3, 0($t1)                 # store 1 on occupied board
+ 162 008c               oneSkip:
+ 163 008c               
+ 164 008c 21080001	    addi    $t0, $t0, 1                 # increment board address
+ 165 0090 21290001	    addi    $t1, $t1, 1                 # increment occupiedBoard address
+ 166 0094 218C0001	    addi    $t4, $t4, 1                 # increment counter
+ 167 0098               
+ 168 0098 298D0024	    slti    $t5, $t4, BOARD_SIZE
+ 169 009c 15A0FFF0	    bne     $t5, $zero, inputLoop       # loop until counter gets to 35
+ 170 00a0               
+ 171 00a0 00001021	    move    $v0, $zero                  # return 1 on success
+ 172 00a4 0800002C	    j       mbExit
+ 173 00a8               
+ 174 00a8               mbBadEnd:
+ 175 00a8 0C000000	    jal     mbError
+ 176 00ac 34020001	    li    $v0, 1                        # return 0 on failure
+ 177 00b0               
+ 178 00b0               mbExit:
+ 179 00b0 8FBF0000	    lw      $ra, -4+FRAMESIZE_4($sp)    # restore the ra
+ 180 00b4 23BD0004	    addi    $sp, $sp, FRAMESIZE_4       # deallocate stack space
+ 181 00b8 03E00008	    jr      $ra
+ 182 00bc               
+ 183 00bc               #-----------------------------------------------------------------------------#
+ 184 00bc               #   Name:           solver
+ 185 00bc               #
+ 186 00bc               #   Description:    uses backtracking to attempt to solve the board
+ 187 00bc               #
+ 188 00bc               #   Arguments:      none
+ 189 00bc               #   Returns:
+ 190 00bc               #                   - v0 = 1 if it failed
+ 191 00bc               #                   - v0 = 0 if it succeeded
+ 192 00bc               #   modifies:       t0,t1,t2,t3,t4,t5,s0,s1,s2,s3,v0,a0
+ 193 00bc               #-----------------------------------------------------------------------------#
+ 194 00bc               
+ 195 00bc               solver:                  
+ 196 00bc 23BDFFFC	    addi    $sp, $sp, -FRAMESIZE_4      # allocate stack space
+ 197 00c0 AFBF0000	    sw      $ra, -4+FRAMESIZE_4($sp)    # store return address on stack
+ 198 00c4               
+ 199 00c4 00004021	    move    $t0, $zero                  # initialize row counter
+ 200 00c8 00004821	    move    $t1, $zero                  # initialize column counter
+ 201 00cc 3C0A0000	    la      $t2, board                  # store board address in t2
+     00d0 354A0000
+ 202 00d4 3C0B0000	    la      $t3, occupiedBoard          # store occupied board address in t3
+     00d8 356B0000
+ 203 00dc               
+ 204 00dc               #   enter row loop
+ 205 00dc               sRowLoop:
+ 206 00dc               #   enter column loop
+ 207 00dc               sColLoop:
+ 208 00dc 816C0000	    lb      $t4, 0($t3)
+ 209 00e0 15800024	    bne     $t4, $zero, skipGuesswork   # skip spot if it's occupied at start 
+ 210 00e4 814C0000	    lb      $t4, 0($t2)                 # load corresponding board spot in t4
+ 211 00e8               
+ 212 00e8               #
+ 213 00e8               #   startGuessing:  methodically guesses numbers until a valid one is found for
+ 214 00e8               #                   each square
+ 215 00e8               #
+ 216 00e8               startGuessing:
+ 217 00e8 218C0001	    addi    $t4, $t4, 1                 # increment number
+ 218 00ec               
+ 219 00ec 298D0007	    slti    $t5, $t4, 7
+ 220 00f0 11A0000D	    beq     $t5, $zero, backtrack       # backtrack if number > 6
+ 221 00f4               
+ 222 00f4                   #
+ 223 00f4                   #   Store variables in s registers for the checkers to use
+ 224 00f4                   #
+ 225 00f4 3C100000	    la      $s0, board
+     00f8 36100000
+ 226 00fc 01008821	    move    $s1, $t0
+ 227 0100 01209021	    move    $s2, $t1                
+ 228 0104 01809821	    move    $s3, $t4
+ 229 0108               
+ 230 0108 0C000000	    jal     checkRow                    
+ 231 010c 1440FFF6	    bne     $v0, $zero, startGuessing   # increment and try again if num found
+ 232 0110               
+ 233 0110 0C000000	    jal     checkCol                    
+ 234 0114 1440FFF4	    bne     $v0, $zero, startGuessing   # increment and try again if num found
+ 235 0118               
+ 236 0118 0C000000	    jal     checkBox                    
+ 237 011c 1440FFF2	    bne     $v0, $zero, startGuessing   # increment and try again if num found
+ 238 0120               
+ 239 0120 A14C0000	    sb      $t4, 0($t2)                 # if number is valid change board value
+ 240 0124               
+ 241 0124 0800005D	    j       skipGuesswork
+ 242 0128               
+ 243 0128               #
+ 244 0128               #   Backtrack:  goes back and tries different numbers on previous squares if a
+ 245 0128               #               value can't be found in startGuessing
+ 246 0128               #
+ 247 0128               backtrack:
+ 248 0128 11200008	    beq     $t1, $zero, colZero         # if col = 0 go back row
+ 249 012c               
+ 250 012c 2129FFFF	    addi    $t1, $t1, -1                # decrement column counter
+ 251 0130 214AFFFF	    addi    $t2, $t2, -1                # decrement board address
+ 252 0134 216BFFFF	    addi    $t3, $t3, -1                # decrement occupied board address
+ 253 0138               
+ 254 0138 816C0000	    lb      $t4, 0($t3)
+ 255 013c 1580FFFA	    bne     $t4, $zero, backtrack       # if the spot is occupied backtrack
+ 256 0140 814C0000	    lb      $t4, 0($t2)                 
+ 257 0144                        
+ 258 0144 A1400000	    sb      $zero, 0($t2)                 # replace the current spot with 0
+ 259 0148               
+ 260 0148 0800003A	    j       startGuessing               # start guessing using the new square
+ 261 014c               
+ 262 014c               #
+ 263 014c               #   colZero:    called when the program is trying to backtrack but it's already
+ 264 014c               #               in column zero. Because the column is zero, it needs to go up a
+ 265 014c               #               row to backtrack
+ 266 014c               #
+ 267 014c               colZero:
+ 268 014c 11000014	    beq     $t0, $zero, solverBadExit   # if index is (0,0) exit
+ 269 0150               
+ 270 0150 34090005	    li      $t1, 5                      # max out column counter
+ 271 0154 2108FFFF	    addi    $t0, $t0, -1                # decrement row counter
+ 272 0158 214AFFFF	    addi    $t2, $t2, -1                # decrement board address
+ 273 015c 216BFFFF	    addi    $t3, $t3, -1                # decrement occupied board address
+ 274 0160               
+ 275 0160 816C0000	    lb      $t4, 0($t3)
+ 276 0164 1580FFF0	    bne     $t4, $zero, backtrack       # if the spot is occupied, backtrack
+ 277 0168 814C0000	    lb      $t4, 0($t2)                 
+ 278 016c               
+ 279 016c A1400000	    sb      $zero, 0($t2)                 # replace the current spot with '0'
+ 280 0170               
+ 281 0170 0800003A	    j       startGuessing               # start guessing using new spot
+ 282 0174               
+ 283 0174               skipGuesswork:
+ 284 0174 21290001	    addi    $t1, $t1, 1                 # increment col counter
+ 285 0178 214A0001	    addi    $t2, $t2, 1                 # increment board address
+ 286 017c 216B0001	    addi    $t3, $t3, 1                 # increment occupied board address
+ 287 0180               
+ 288 0180 292D0006	    slti    $t5, $t1, BOARD_DIM
+ 289 0184 15A0FFD5	    bne     $t5, $zero, sColLoop        # loop while col < 6
+ 290 0188               #   leave column loop
+ 291 0188               
+ 292 0188 00004821	    move    $t1, $zero                  # reset col counter
+ 293 018c 21080001	    addi    $t0, $t0, 1                 # increment row counter
+ 294 0190               
+ 295 0190 290D0006	    slti    $t5, $t0, BOARD_DIM
+ 296 0194 15A0FFD1	    bne     $t5, $zero, sRowLoop        # loop while row < 6
+ 297 0198               #   leave row loop
+ 298 0198               
+ 299 0198 00001021	    move    $v0, $zero                  
+ 300 019c 0800006A	    j       solverExit                  # return 0 upon success
+ 301 01a0               
+ 302 01a0               solverBadExit:
+ 303 01a0 0C000000	    jal solverErrorMessage
+ 304 01a4 34020001	    li      $v0, 1                      # return 1 upon failure
+ 305 01a8               
+ 306 01a8               solverExit:
+ 307 01a8 8FBF0000	    lw      $ra, -4+FRAMESIZE_4($sp)    # restore the ra
+ 308 01ac 23BD0004	    addi    $sp, $sp, FRAMESIZE_4       # deallocate stack space
+ 309 01b0 03E00008	    jr      $ra
+ 310 01b4               
+ 311 01b4               
+ 312 01b4               #-----------------------------------------------------------------------------#
+ 313 01b4               #   Name:           getIndex
+ 314 01b4               #
+ 315 01b4               #   Description:    returns the contents of the board at the coordinates
+ 316 01b4               #                   provided.         
+ 317 01b4               #
+ 318 01b4               #   Arguments:      
+ 319 01b4               #                   - s0 = board
+ 320 01b4               #                   - s1 = row
+ 321 01b4               #                   - s2 = col
+ 322 01b4               #   Returns:
+ 323 01b4               #                   - v0 = the number found at the coordinates
+ 324 01b4               
+ 325 01b4               #   modifies:       v0
+ 326 01b4               #-----------------------------------------------------------------------------#
+ 327 01b4               FRAMESIZE_16 = 16
+ 328 01b4               getIndex:
+ 329 01b4 23BDFFF0	    addi    $sp, $sp, -FRAMESIZE_16         # allocate stack space
+ 330 01b8 AFBF000C	    sw      $ra, -4+FRAMESIZE_16($sp)       # store ra on the stack
+ 331 01bc AFA80008	    sw      $t0, -8+FRAMESIZE_16($sp)       
+ 332 01c0 AFA90004	    sw      $t1, -12+FRAMESIZE_16($sp)      
+ 333 01c4 AFAA0000	    sw      $t2, -16+FRAMESIZE_16($sp)      
+ 334 01c8               
+ 335 01c8 02004021	    move    $t0, $s0                        
+ 336 01cc 340A0006	    li      $t2, BOARD_DIM                  
+ 337 01d0 022A0018	    mul     $t1, $s1, $t2                   # multiply columns by width
+     01d4 00004812
+ 338 01d8 01324820	    add     $t1, $t1, $s2                   # add the remainder
+ 339 01dc 01094020	    add     $t0, $t0, $t1                   # add it to the board address 
+ 340 01e0                       
+ 341 01e0 81020000	    lb $v0, 0($t0)                          # return value from new address
+ 342 01e4               
+ 343 01e4 8FAA0000	    lw  $t2, -16+FRAMESIZE_16($sp)      # restore all the registers used
+ 344 01e8 8FA90004	    lw  $t1, -12+FRAMESIZE_16($sp)  
+ 345 01ec 8FA80008	    lw  $t0, -8+FRAMESIZE_16($sp)   
+ 346 01f0 8FBF000C	    lw  $ra, -4+FRAMESIZE_16($sp)       # restore the ra
+ 347 01f4 23BD0010	    addi    $sp, $sp, FRAMESIZE_16      # deallocate stack space
+ 348 01f8 03E00008	    jr  $ra
+
+
+       Name         F  Value   M V Sect.                             References
+------------------  - -------- - - ----- ------------------------------------------------------------------
+BACKSPACE             0000000A =         @   20, 139
+BOARD_DIM             00000006 =         @   18, 288, 295, 336
+BOARD_SIZE            00000024 =         @   17, 168
+FRAMESIZE_16          00000010 =         @  328, 329, 330, 331, 332, 333, 343, 344, 345, 346, 347
+FRAMESIZE_4           00000004 =         @   93,  94,  95, 114, 115, 134, 135, 179, 180, 196, 197, 307, 308
+READ_INT              00000005 =         @   15, 145
+announceFinalPuzz     ******** X G       @   71, 108
+announcePuzzle        ******** X G       @   70, 102
+backtrack             00000128 R   text  @  220, 247, 255, 276
+board                 00000000 R G data  @   32,  60, 137, 201, 225
+checkBox              ******** X G       @   76, 236
+checkCol              ******** X G       @   75, 233
+checkRow              ******** X G       @   74, 230
+colZero               0000014C R   text  @  248, 267
+exitMain              00000030 R   text  @  100, 106, 113
+getIndex              000001B4 R G text  @   59, 328
+inputLoop             00000060 R   text  @  144, 147, 169
+main                  00000000 R G text  @   58,  93
+makeBoard             0000003C R   text  @   99, 133
+mbBadEnd              000000A8 R   text  @  150, 153, 174
+mbError               ******** X G       @   72, 175
+mbExit                000000B0 R   text  @  172, 178
+occupiedBoard         00000024 R G data  @   44,  61, 138, 202
+oneSkip               0000008C R   text  @  158, 162
+printBoard            ******** X G       @   67, 103, 109
+printIntro            ******** X G       @   68,  97
+sColLoop              000000DC R   text  @  207, 289
+sRowLoop              000000DC R   text  @  205, 296
+skipGuesswork         00000174 R   text  @  209, 241, 283
+solver                000000BC R   text  @  105, 195
+solverBadExit         000001A0 R   text  @  268, 302
+solverErrorMessage    ******** X G       @   69, 303
+solverExit            000001A8 R   text  @  300, 306
+startGuessing         000000E8 R   text  @  216, 231, 234, 237, 260, 281

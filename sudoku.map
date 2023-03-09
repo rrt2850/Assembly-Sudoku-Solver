@@ -1,0 +1,106 @@
+Load map
+Module entry point: 0x00400520
+
+Module:  sudoku.obj
+ Text segment:  508 bytes, load point 0x00400000
+ Data segment:  72 bytes, load point 0x10000000
+ Symbols:
+                Name Section Mode    Value
+                main   Text   RG  0x00400000
+            mbBadEnd   Text   R   0x004000a8
+       skipGuesswork   Text   R   0x00400174
+             colZero   Text   R   0x0040014c
+       startGuessing   Text   R   0x004000e8
+            exitMain   Text   R   0x00400030
+              mbExit   Text   R   0x004000b0
+           inputLoop   Text   R   0x00400060
+            getIndex   Text   RG  0x004001b4
+            READ_INT          A   0x00000005
+          BOARD_SIZE          A   0x00000024
+              solver   Text   R   0x004000bc
+           makeBoard   Text   R   0x0040003c
+       occupiedBoard   Data   RG  0x10000024
+           BOARD_DIM          A   0x00000006
+          solverExit   Text   R   0x004001a8
+           BACKSPACE          A   0x0000000a
+               board   Data   RG  0x10000000
+           backtrack   Text   R   0x00400128
+       solverBadExit   Text   R   0x004001a0
+            sRowLoop   Text   R   0x004000dc
+        FRAMESIZE_16          A   0x00000010
+             oneSkip   Text   R   0x0040008c
+         FRAMESIZE_4          A   0x00000004
+            sColLoop   Text   R   0x004000dc
+
+Module:  printers.obj
+ Text segment:  348 bytes, load point 0x004001fc
+ Data segment:  168 bytes, load point 0x10000048
+ Symbols:
+                Name Section Mode    Value
+           badPuzzle   Data   R   0x100000d7
+   announceFinalPuzz   Text   RG  0x0040031c
+             barSkip   Text   R   0x00400250
+           spaceSkip   Text   R   0x00400258
+          printBoard   Text   RG  0x004001fc
+          switchSkip   Text   R   0x00400234
+                endl   Text   R   0x004002d0
+        PRINT_STRING          A   0x00000004
+               intro   Data   R   0x1000005b
+           iniPuzzle   Data   R   0x1000008b
+       endSwitchSkip   Text   R   0x0040023c
+             rowLoop   Text   R   0x00400220
+           BOARD_DIM          A   0x00000006
+             colLoop   Text   R   0x00400224
+          SPACE_CHAR          A   0x00000020
+             mbError   Text   RG  0x00400344
+         finalPuzzle   Data   R   0x1000009c
+          printSpace   Text   R   0x004002e4
+              badEnd   Data   R   0x100000ab
+  solverErrorMessage   Text   RG  0x00400330
+      announcePuzzle   Text   RG  0x00400308
+          PRINT_CHAR          A   0x0000000b
+           PRINT_INT          A   0x00000001
+        printVertBar   Text   R   0x004002a8
+             vertBar   Data   R   0x10000057
+        printHoriBar   Text   R   0x004002bc
+          horiFinish   Text   R   0x00400290
+          printIntro   Text   RG  0x004002f4
+             horiBar   Data   R   0x10000048
+             newLine   Data   R   0x10000059
+         FRAMESIZE_4          A   0x00000004
+            horiSkip   Text   R   0x0040028c
+
+Module:  checkers.obj
+ Text segment:  452 bytes, load point 0x00400358
+ Symbols:
+                Name Section Mode    Value
+            checkBox   Text   RG  0x00400440
+        FRAMESIZE_32          A   0x00000020
+              crLoop   Text   R   0x00400380
+              crExit   Text   R   0x004003a4
+           COL_SEC_1          A   0x00000003
+        FRAMESIZE_40          A   0x00000028
+           rowSecTwo   Text   R   0x0040048c
+           cbRowLoop   Text   R   0x004004ac
+            checkCol   Text   RG  0x004003cc
+              ccLoop   Text   R   0x004003f4
+           rowSecOne   Text   R   0x00400484
+           cbColLoop   Text   R   0x004004ac
+           getColSec   Text   R   0x00400490
+              ccExit   Text   R   0x00400418
+            checkRow   Text   RG  0x00400358
+              cbExit   Text   R   0x004004ec
+            crBadEnd   Text   R   0x004003a0
+           loopSetup   Text   R   0x004004a4
+            cbBadEnd   Text   R   0x004004e8
+           ROW_SEC_1          A   0x00000002
+           ROW_SEC_2          A   0x00000004
+           colSecOne   Text   R   0x004004a0
+            ccBadEnd   Text   R   0x00400414
+
+Module:  r2k_startup.obj
+ Text segment:  36 bytes, load point 0x0040051c
+ Symbols:
+                Name Section Mode    Value
+           SYS_EXIT2          A   0x00000011
+      __r2k__entry__   Text   RG  0x00400520
